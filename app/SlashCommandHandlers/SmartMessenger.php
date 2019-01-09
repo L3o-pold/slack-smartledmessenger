@@ -8,6 +8,14 @@ use Spatie\SlashCommand\Handlers\BaseHandler;
 use Spatie\SlashCommand\Request;
 use Spatie\SlashCommand\Response;
 
+/**
+ * @package SmartMessenger
+ * @author  Léopold Jacquot {@link https://www.leopoldjacquot.com}
+ *
+ *          message [--intensity=15] [--speed=50] [--static=0]
+ *
+ *          Distant API doesn't handle params like brightness or speed unlucky...
+ */
 class SmartMessenger extends BaseHandler {
 
     const SMART_LED_MESSENGER_API_URL = 'https://www.smartledmessenger.com/push.ashx';
@@ -34,15 +42,74 @@ class SmartMessenger extends BaseHandler {
      */
     public function handle(Request $request): Response {
         try {
-            file_get_contents(
-                self::SMART_LED_MESSENGER_API_URL.'?key='.config('app.smart_led_messenger_api_key').'&message='.urlencode($request->text)
-            );
-        } catch (\Exception $e) {
-            Log::debug($e);
+            $options = $this->getOptions($request->text);
 
-            return $this->respondToSlack("Euuuh erreur erreur erreur!");
+            if (!is_array($options)) {
+                return $options;
+            }
+
+            file_get_contents(self::SMART_LED_MESSENGER_API_URL . '?' . http_build_query($options));
+        } catch (\Exception $e) {
+            Log::error($e);
+
+            return $this->respondToSlack("Oh! An error occured.");
         }
 
-        return $this->respondToSlack("Ok mec!");
+        return $this->respondToSlack("Message sent and will be displayed soon!");
+    }
+
+    /**
+     * @param string $text
+     *
+     * @return array|Response
+     */
+    private function getOptions(string $text) {
+
+        $intensity = 0;
+        $speed = 10;
+        $static = 0;
+        $params = explode(' ', $text);
+
+        foreach ($params as $key => $param) {
+            if (strpos($param, '--intensity=') !== false) {
+                $intensity = (int) str_replace('--intensity=', '', $param);
+
+                if (!in_array($intensity, range(0, 15))) {
+                    return $this->respondToSlack("Intensity parameter must be between 0 and 15!");
+                }
+
+                unset($params[$key]);
+            } else if (strpos($param, '--speed=') !== false) {
+                $speed = (int) str_replace('--speed=', '', $param);
+
+                if (!in_array($speed, range(10, 50))) {
+                    return $this->respondToSlack("Speed parameter must be between 10 and 50!");
+                }
+
+                unset($params[$key]);
+            } else if (strpos($param, '--static=') !== false) {
+                $static = (int) str_replace('--static=', '', $param);
+
+                if (!in_array($static, range(0, 1))) {
+                    return $this->respondToSlack("Static parameter must be 0 or 1!");
+                }
+
+                unset($params[$key]);
+            }
+        }
+
+        $options = [
+            'key'       => config('app.smart_led_messenger_api_key'),
+            'intensity' => $intensity,
+            'speed'     => $speed,
+            'static'    => $static,
+            'message'   => implode(' ', $params),
+        ];
+
+        if (empty($options['message'])) {
+            return $this->respondToSlack("Message should not be empty!");
+        }
+
+        return $options;
     }
 }

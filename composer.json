@@ -1,10 +1,11 @@
 {
-    "name": "laravel/laravel",
+    "name": "l3o-pold/slack-smartledmessenger",
     "type": "project",
-    "description": "The Laravel Framework.",
+    "description": "Laravel project to send message to smart led messenger device from Slack",
     "keywords": [
-        "framework",
-        "laravel"
+        "smartled",
+        "laravel",
+        "slack"
     ],
     "license": "MIT",
     "require": {
